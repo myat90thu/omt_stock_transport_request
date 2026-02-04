@@ -171,8 +171,8 @@ class StockTransportRequest(models.Model):
 
             # If no rule matched, provide informative message
             if not matched_rule:
-                warehouse_rules = rules.filtered(lambda r: r.providing_warehouse_id.id == rec.providing_warehouse_id.id and r.rule_line_ids)
-                if warehouse_rules:
+                product_limit_rules = rules.filtered(lambda r: r.providing_warehouse_id.id == rec.providing_warehouse_id.id and r.rule_line_ids)
+                if product_limit_rules:
                     messages.append(
                         _("No approval rule matched. Please check product quantity limits for %s") %
                         rec.providing_warehouse_id.name

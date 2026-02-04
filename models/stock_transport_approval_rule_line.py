@@ -5,7 +5,7 @@ class StockTransportApprovalRuleLine(models.Model):
     _name = "stock.transport.approval.rule.line"
     _description = "STO Approval Rule Line"
     _sql_constraints = [
-        ('unique_rule_product', 'unique(approval_rule_id, product_id)', 
+        ('stock_transport_approval_rule_line_unique_product', 'unique(approval_rule_id, product_id)',
          'Product must be unique per approval rule!')
     ]
 
