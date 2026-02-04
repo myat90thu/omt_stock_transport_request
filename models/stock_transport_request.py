@@ -101,6 +101,27 @@ class StockTransportRequest(models.Model):
             rec.total_qty = qty
             rec.total_value = value
 
+    def _prepare_request_lines(self):
+        """Helper method to prepare request lines with converted quantities.
+        Returns list of dicts with 'product_id', 'qty', and 'line' keys.
+        Quantities are converted to product default UoM.
+        """
+        request_lines = []
+        for line in self.line_ids:
+            product_uom = line.product_id.uom_id
+            requested_qty = line.product_uom_qty
+            if line.product_uom_id and product_uom:
+                requested_qty = line.product_uom_id._compute_quantity(
+                    line.product_uom_qty, product_uom
+                )
+            request_lines.append({
+                'product_id': line.product_id.id,
+                'qty': requested_qty,
+                'line': line,
+                'uom': product_uom
+            })
+        return request_lines
+
     def action_request(self):
         """Submit request for approval. Validates lines, computes totals, checks approval rules,
         validates per-line free qty and sets need_revision if checks fail."""
@@ -111,45 +132,33 @@ class StockTransportRequest(models.Model):
                 raise UserError(_("Please add at least one line before submitting."))
             if not rec.requesting_warehouse_id or not rec.providing_warehouse_id:
                 raise UserError(_("Both requesting and providing warehouses must be set."))
-            
+
             # Reset need_revision
             rec.need_revision = False
             messages = []
-            
-            # Prepare request lines for rule matching (convert to product default UoM)
-            request_lines = []
-            for line in rec.line_ids:
-                product_uom = line.product_id.uom_id
-                requested_qty = line.product_uom_qty
-                if line.product_uom_id and product_uom:
-                    requested_qty = line.product_uom_id._compute_quantity(
-                        line.product_uom_qty, product_uom
-                    )
-                request_lines.append({
-                    'product_id': line.product_id.id,
-                    'qty': requested_qty,
-                    'line': line
-                })
-            
+
+            # Prepare request lines (convert to product default UoM)
+            request_lines = rec._prepare_request_lines()
+
             # Check per-line free qty in providing warehouse
             for req_line in request_lines:
                 line = req_line['line']
                 free_qty = line.product_id.with_context(
                     warehouse=rec.providing_warehouse_id.id
                 ).qty_available
-                
+
                 if req_line['qty'] > free_qty:
                     messages.append(
                         _("Product %s: requested %.2f %s but only %.2f available in %s") % (
                             line.product_id.display_name,
                             req_line['qty'],
-                            line.product_id.uom_id.name,
+                            req_line['uom'].name,
                             free_qty,
                             rec.providing_warehouse_id.name
                         )
                     )
                     rec.need_revision = True
-            
+
             # Check approval rules
             rules = self.env['stock.transport.approval.rule'].search(
                 [('active', '=', True)], order='sequence asc'
@@ -159,10 +168,9 @@ class StockTransportRequest(models.Model):
                 if rule.matches(rec.providing_warehouse_id.id, request_lines, rec.company_id.id):
                     matched_rule = rule
                     break
-            
-            # If no rule matched and there are product-specific limit violations
+
+            # If no rule matched, check for product limit violations
             if not matched_rule:
-                # Check if any rule has product limits that were exceeded
                 warehouse_rules = rules.filtered(lambda r: r.providing_warehouse_id.id == rec.providing_warehouse_id.id)
                 for rule in warehouse_rules:
                     if rule.rule_line_ids:
@@ -179,10 +187,10 @@ class StockTransportRequest(models.Model):
                                         )
                                     )
                                     rec.need_revision = True
-            
+
             # Set state to requested
             rec.state = 'requested'
-            
+
             if rec.need_revision:
                 rec.message_post(body=_("Request submitted but needs revision:<br/>%s") % "<br/>".join(messages))
             else:
@@ -199,24 +207,13 @@ class StockTransportRequest(models.Model):
                 raise UserError(_("Only requests in 'Requested' state can be approved."))
             if rec.need_revision:
                 raise UserError(_("Cannot approve a request that needs revision. Please adjust quantities."))
-            
+
             # Prepare request lines for rule matching
-            request_lines = []
-            for line in rec.line_ids:
-                product_uom = line.product_id.uom_id
-                requested_qty = line.product_uom_qty
-                if line.product_uom_id and product_uom:
-                    requested_qty = line.product_uom_id._compute_quantity(
-                        line.product_uom_qty, product_uom
-                    )
-                request_lines.append({
-                    'product_id': line.product_id.id,
-                    'qty': requested_qty
-                })
-            
+            request_lines = rec._prepare_request_lines()
+
             # Check if user has approver rights
             rules = self.env['stock.transport.approval.rule'].search(
-                [('active', '=', True), ('providing_warehouse_id', '=', rec.providing_warehouse_id.id)], 
+                [('active', '=', True), ('providing_warehouse_id', '=', rec.providing_warehouse_id.id)],
                 order='sequence asc'
             )
             matched_rule = None
@@ -224,11 +221,11 @@ class StockTransportRequest(models.Model):
                 if rule.matches(rec.providing_warehouse_id.id, request_lines, rec.company_id.id):
                     matched_rule = rule
                     break
-            
+
             if matched_rule and matched_rule.approver_group_id:
                 if matched_rule.approver_group_id.id not in self.env.user.groups_id.ids:
                     raise UserError(_("You are not authorized to approve this request."))
-            
+
             rec.state = 'approved'
             rec.message_post(body=_("Request approved by %s") % self.env.user.display_name)
             rec._create_internal_picking()
