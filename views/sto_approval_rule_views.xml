@@ -6,10 +6,8 @@
       <list>
         <field name="name"/>
         <field name="company_id"/>
-        <field name="min_qty"/>
-        <field name="max_qty"/>
-        <field name="min_value"/>
-        <field name="max_value"/>
+        <field name="providing_warehouse_id"/>
+        <field name="valid_qty"/>
         <field name="approve_required"/>
         <field name="auto_create_picking"/>
         <field name="sequence"/>
@@ -25,17 +23,17 @@
       <form>
         <sheet>
           <group>
-            <field name="name"/>
-            <field name="active"/>
-            <field name="sequence"/>
-            <field name="company_id"/>
-          </group>
-          <group>
-            <field name="min_qty"/>
-            <field name="max_qty"/>
-            <field name="min_value"/>
-            <field name="max_value"/>
-            <field name="currency_id" readonly="1"/>
+            <group>
+              <field name="name"/>
+              <field name="active"/>
+              <field name="sequence"/>
+              <field name="company_id"/>
+            </group>
+            <group>
+              <field name="providing_warehouse_id" options="{'no_create': True}"/>
+              <field name="valid_qty" help="Maximum quantity allowed. 0 = no limit"/>
+              <field name="currency_id" readonly="1" invisible="1"/>
+            </group>
           </group>
           <group>
             <field name="approve_required"/>
