@@ -3,7 +3,7 @@
     "version": "1.0.0",
     "summary": "Stock Transport Order Request with dynamic approval rules (Odoo 19)",
     "category": "Warehouse",
-    "author": "Your Company",
+    "author": "Max Thu - Odoo Myanmar Tutorial",
     "license": "LGPL-3",
     "depends": ["stock", "product"],
     "data": [
