@@ -169,24 +169,15 @@ class StockTransportRequest(models.Model):
                     matched_rule = rule
                     break
 
-            # If no rule matched, check for product limit violations
+            # If no rule matched, provide informative message
             if not matched_rule:
-                warehouse_rules = rules.filtered(lambda r: r.providing_warehouse_id.id == rec.providing_warehouse_id.id)
-                for rule in warehouse_rules:
-                    if rule.rule_line_ids:
-                        for req_line in request_lines:
-                            rule_line = rule.rule_line_ids.filtered(lambda l: l.product_id.id == req_line['product_id'])
-                            if rule_line and rule_line.valid_request_qty > 0.0:
-                                if req_line['qty'] > rule_line.valid_request_qty:
-                                    messages.append(
-                                        _("Product %s: requested %.2f exceeds limit %.2f for %s") % (
-                                            req_line['line'].product_id.display_name,
-                                            req_line['qty'],
-                                            rule_line.valid_request_qty,
-                                            rec.providing_warehouse_id.name
-                                        )
-                                    )
-                                    rec.need_revision = True
+                warehouse_rules = rules.filtered(lambda r: r.providing_warehouse_id.id == rec.providing_warehouse_id.id and r.rule_line_ids)
+                if warehouse_rules:
+                    messages.append(
+                        _("No approval rule matched. Please check product quantity limits for %s") %
+                        rec.providing_warehouse_id.name
+                    )
+                    rec.need_revision = True
 
             # Set state to requested
             rec.state = 'requested'
