@@ -8,15 +8,14 @@ class StockTransportRequestLine(models.Model):
     product_id = fields.Many2one('product.product', string="Product", required=True)
     product_uom_id = fields.Many2one('uom.uom', string="UoM", required=True)
     product_uom_qty = fields.Float(string="Quantity", required=True, default=1.0)
-    product_free_qty = fields.Float(string="Free Qty", compute='_compute_product_free_qty', readonly=True,
+    product_free_qty = fields.Float(string="Free Qty", readonly=True,
                                      help="Available quantity in the providing warehouse")
-    scheduled_date = fields.Datetime(string="Scheduled Date")
     note = fields.Text(string="Notes")
     linked_move_id = fields.Many2one('stock.move', string="Stock Move")
 
-    @api.depends('product_id', 'request_id.providing_warehouse_id')
-    def _compute_product_free_qty(self):
-        """Compute the available quantity of the product in the providing warehouse."""
+    @api.onchange('product_id', 'request_id.providing_warehouse_id')
+    def _onchange_product_free_qty(self):
+        """onchange the available quantity of the product in the providing warehouse."""
         for rec in self:
             if rec.product_id and rec.request_id and rec.request_id.providing_warehouse_id:
                 rec.product_free_qty = rec.product_id.with_context(

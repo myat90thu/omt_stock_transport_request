@@ -15,7 +15,7 @@ class StockTransportApprovalRule(models.Model):
     sequence = fields.Integer(default=10)
     company_id = fields.Many2one('res.company', string="Company", default=lambda self: self.env.company)
     providing_warehouse_id = fields.Many2one('stock.warehouse', string="Providing Warehouse", required=True)
-    valid_qty = fields.Float(string="Valid Request Qty", default=0.0,
+    valid_qty = fields.Float(string="Valid Request Qty", related="providing_warehouse_id.valid_request_qty",
                              help="Maximum total quantity allowed for requests. 0 means no limit.")
     currency_id = fields.Many2one('res.currency', related='company_id.currency_id', readonly=True)
     approve_required = fields.Boolean(string="Requires approval", default=True,
@@ -66,6 +66,7 @@ class StockTransportRequest(models.Model):
     total_qty = fields.Float(string="Total Quantity", compute='_compute_totals', store=True)
     total_value = fields.Monetary(string="Total Value", compute='_compute_totals', store=True)
     currency_id = fields.Many2one('res.currency', related='company_id.currency_id', readonly=True)
+    scheduled_date = fields.Datetime(string="Scheduled Date")
 
     @api.depends('line_ids.product_uom_qty', 'line_ids.product_id')
     def _compute_totals(self):
@@ -244,6 +245,7 @@ class StockTransportRequest(models.Model):
                 'origin': rec.name,
                 'company_id': rec.company_id.id,
                 'transport_request_id': rec.id,
+                'scheduled_date': rec.scheduled_date
             }
             picking = StockPicking.create(picking_vals)
             

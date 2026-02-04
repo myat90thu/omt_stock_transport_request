@@ -19,7 +19,7 @@
     <field name="name">stock.transport.request.list</field>
     <field name="model">stock.transport.request</field>
     <field name="arch" type="xml">
-      <list string="Stock Transport Requests">
+      <list string="Stock Transport Order Requests">
         <field name="name"/>
         <field name="requesting_warehouse_id"/>
         <field name="providing_warehouse_id"/>
@@ -38,7 +38,7 @@
     <field name="name">stock.transport.request.form</field>
     <field name="model">stock.transport.request</field>
     <field name="arch" type="xml">
-      <form string="Stock Transport Request">
+      <form string="Stock Transport Order Request">
         <header>
           <button name="action_request" type="object" string="Request" invisible="state != 'draft'" class="btn-primary"/>
           <button name="action_approve" type="object" string="Approve" 
@@ -66,6 +66,8 @@
               <field name="company_id" readonly="state!='draft'"/>
               <field name="requested_by" readonly="state!='draft'"/>
               <field name="requested_date" readonly="state!='draft'"/>
+              <field name="scheduled_date" readonly="state!='draft'"/>
+
             </group>
             <group>
               <field name="requesting_warehouse_id" options="{'no_create': True}" readonly="state!='draft'"/>
@@ -80,8 +82,7 @@
                   <field name="product_id" />
                   <field name="product_uom_id" />
                   <field name="product_uom_qty" />
-                  <field name="product_free_qty" />
-                  <field name="scheduled_date"/>
+                  <field name="product_free_qty" force_save="1"/>
                 </list>
               </field>
             </page>
