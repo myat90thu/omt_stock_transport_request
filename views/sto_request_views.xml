@@ -22,11 +22,12 @@
       <list string="Stock Transport Requests">
         <field name="name"/>
         <field name="requesting_warehouse_id"/>
-        <field name="destination_warehouse_id"/>
+        <field name="providing_warehouse_id"/>
         <field name="requested_by"/>
         <field name="requested_date"/>
         <field name="total_qty"/>
         <field name="total_value"/>
+        <field name="need_revision"/>
         <field name="state"/>
       </list>
     </field>
@@ -39,15 +40,25 @@
     <field name="arch" type="xml">
       <form string="Stock Transport Request">
         <header>
-          <button name="action_confirm" type="object" string="Confirm" invisible="state != 'draft'"/>
-          <button name="action_approve" type="object" string="Approve" invisible="state != 'waiting_approval'" groups="base.group_user"/>
-          <button name="action_done" type="object" string="Done" invisible="state != 'approved'" groups="base.group_user"/>
-
-          <button name="action_cancel" type="object" string="Cancel" invisible="state != 'draft' and state != 'confirmed' and state != 'waiting_approval'"/>
-          <button name="action_set_draft" type="object" string="Set to Draft" invisible="state != 'cancelled'"/>
-          <field name="state" widget="statusbar" statusbar_visible="draft,waiting_approval,approved,confirmed,done,cancelled"/>
+          <button name="action_request" type="object" string="Request" invisible="state != 'draft'" class="btn-primary"/>
+          <button name="action_approve" type="object" string="Approve" 
+                  invisible="state != 'requested' or need_revision == True" 
+                  groups="base.group_user"/>
+          <button name="action_set_draft" type="object" string="Set to Draft" 
+                  invisible="state not in ['requested', 'cancelled']"/>
+          <button name="action_cancel" type="object" string="Cancel" 
+                  invisible="state not in ['draft', 'requested']"/>
+          <field name="state" widget="statusbar" statusbar_visible="draft,requested,approved,confirmed"/>
         </header>
         <sheet>
+          <div class="oe_button_box" name="button_box" invisible="not picking_ids">
+            <button class="oe_stat_button" type="object" name="action_view_pickings" icon="fa-truck">
+              <field string="Pickings" name="picking_ids" widget="statinfo"/>
+            </button>
+          </div>
+          <div class="alert alert-warning" role="alert" invisible="not need_revision">
+            <strong>Revision Needed:</strong> This request exceeds allowed limits or available stock. Please adjust quantities.
+          </div>
           <group>
             <group>
               <field name="name" readonly="1"/>
@@ -57,9 +68,9 @@
               <field name="requested_date"/>
             </group>
             <group>
-              <field name="requesting_warehouse_id"/>
-              <field name="destination_warehouse_id"/>
-              <field name="state" readonly="1"/>
+              <field name="requesting_warehouse_id" options="{'no_create': True}"/>
+              <field name="providing_warehouse_id" options="{'no_create': True}"/>
+              <field name="need_revision" invisible="1"/>
             </group>
           </group>
           <notebook>
@@ -69,8 +80,8 @@
                   <field name="product_id"/>
                   <field name="product_uom_id"/>
                   <field name="product_uom_qty"/>
+                  <field name="product_free_qty" readonly="1"/>
                   <field name="scheduled_date"/>
-                  <field name="linked_move_id"/>
                 </list>
               </field>
             </page>
@@ -80,8 +91,24 @@
                 <field name="total_value" readonly="1"/>
               </group>
             </page>
+            <page string="Pickings" invisible="not picking_ids">
+              <field name="picking_ids" nolabel="1">
+                <list>
+                  <field name="name"/>
+                  <field name="picking_type_id"/>
+                  <field name="location_id"/>
+                  <field name="location_dest_id"/>
+                  <field name="state"/>
+                </list>
+              </field>
+            </page>
           </notebook>
         </sheet>
+        <div class="oe_chatter">
+          <field name="message_follower_ids"/>
+          <field name="activity_ids"/>
+          <field name="message_ids"/>
+        </div>
       </form>
     </field>
   </record>

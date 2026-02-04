@@ -1,0 +1,25 @@
+<odoo>
+  <!-- Inherit stock.warehouse form view to add valid_request_qty -->
+  <record id="view_warehouse_form_inherit_sto" model="ir.ui.view">
+    <field name="name">stock.warehouse.form.inherit.sto</field>
+    <field name="model">stock.warehouse</field>
+    <field name="inherit_id" ref="stock.view_warehouse"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='code']" position="after">
+        <field name="valid_request_qty"/>
+      </xpath>
+    </field>
+  </record>
+
+  <!-- Inherit stock.warehouse tree view to add valid_request_qty -->
+  <record id="view_warehouse_tree_inherit_sto" model="ir.ui.view">
+    <field name="name">stock.warehouse.tree.inherit.sto</field>
+    <field name="model">stock.warehouse</field>
+    <field name="inherit_id" ref="stock.view_warehouse_tree"/>
+    <field name="arch" type="xml">
+      <xpath expr="//field[@name='name']" position="after">
+        <field name="valid_request_qty"/>
+      </xpath>
+    </field>
+  </record>
+</odoo>
