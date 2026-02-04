@@ -1,8 +1,0 @@
-<odoo>
-  <record id="seq_sto_request" model="ir.sequence">
-    <field name="name">STO Request</field>
-    <field name="code">stock.transport.request</field>
-    <field name="prefix">STO</field>
-    <field name="padding">5</field>
-  </record>
-</odoo>

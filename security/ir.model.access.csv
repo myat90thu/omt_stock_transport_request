@@ -1,5 +1,0 @@
-id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
-access_stock_transport_request,access.stock.transport.request,model_stock_transport_request,,1,1,1,1
-access_stock_transport_request_line,access.stock.transport.request.line,model_stock_transport_request_line,,1,1,1,1
-access_stock_transport_approval_rule,access.stock.transport.approval.rule,model_stock_transport_approval_rule,,1,1,1,1
-access_stock_transport_approval_rule_line,access.stock.transport.approval.rule.line,model_stock_transport_approval_rule_line,,1,1,1,1
