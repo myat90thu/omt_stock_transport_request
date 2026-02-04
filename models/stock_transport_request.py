@@ -15,8 +15,7 @@ class StockTransportApprovalRule(models.Model):
     sequence = fields.Integer(default=10)
     company_id = fields.Many2one('res.company', string="Company", default=lambda self: self.env.company)
     providing_warehouse_id = fields.Many2one('stock.warehouse', string="Providing Warehouse", required=True)
-    valid_qty = fields.Float(string="Valid Request Qty", related="providing_warehouse_id.valid_request_qty",
-                             help="Maximum total quantity allowed for requests. 0 means no limit.")
+    rule_line_ids = fields.One2many('stock.transport.approval.rule.line', 'approval_rule_id', string="Product Limits")
     currency_id = fields.Many2one('res.currency', related='company_id.currency_id', readonly=True)
     approve_required = fields.Boolean(string="Requires approval", default=True,
                                       help="If checked, matching requests go to requested state.")
@@ -25,16 +24,28 @@ class StockTransportApprovalRule(models.Model):
     approver_group_id = fields.Many2one('res.groups', string="Approver Group",
                                         help="Members of this group can approve requests that match this rule.")
 
-    def matches(self, providing_warehouse_id, total_qty, company_id):
-        """Return True if rule matches given warehouse, qty and company."""
+    def matches(self, providing_warehouse_id, request_lines, company_id):
+        """Return True if rule matches given warehouse, product lines and company.
+        Also validates product-specific quantity limits.
+        request_lines: list of dicts with 'product_id' and 'qty' keys (qty in product default UoM)
+        """
         if not self.active:
             return False
         if self.company_id and self.company_id.id != company_id:
             return False
         if self.providing_warehouse_id.id != providing_warehouse_id:
             return False
-        if self.valid_qty > 0.0 and total_qty > self.valid_qty:
-            return False
+        
+        # Check product-specific limits if rule lines are defined
+        if self.rule_line_ids:
+            for req_line in request_lines:
+                # Find matching rule line for this product
+                rule_line = self.rule_line_ids.filtered(lambda l: l.product_id.id == req_line['product_id'])
+                if rule_line:
+                    # Check if requested qty exceeds the limit
+                    if rule_line.valid_request_qty > 0.0 and req_line['qty'] > rule_line.valid_request_qty:
+                        return False
+        
         return True
 
 
@@ -105,52 +116,69 @@ class StockTransportRequest(models.Model):
             rec.need_revision = False
             messages = []
             
-            # Check per-line free qty in providing warehouse
+            # Prepare request lines for rule matching (convert to product default UoM)
+            request_lines = []
             for line in rec.line_ids:
-                # Convert requested qty to product default UoM for comparison
                 product_uom = line.product_id.uom_id
                 requested_qty = line.product_uom_qty
                 if line.product_uom_id and product_uom:
                     requested_qty = line.product_uom_id._compute_quantity(
                         line.product_uom_qty, product_uom
                     )
-                
+                request_lines.append({
+                    'product_id': line.product_id.id,
+                    'qty': requested_qty,
+                    'line': line
+                })
+            
+            # Check per-line free qty in providing warehouse
+            for req_line in request_lines:
+                line = req_line['line']
                 free_qty = line.product_id.with_context(
                     warehouse=rec.providing_warehouse_id.id
                 ).qty_available
                 
-                if requested_qty > free_qty:
+                if req_line['qty'] > free_qty:
                     messages.append(
                         _("Product %s: requested %.2f %s but only %.2f available in %s") % (
                             line.product_id.display_name,
-                            requested_qty,
-                            product_uom.name,
+                            req_line['qty'],
+                            line.product_id.uom_id.name,
                             free_qty,
                             rec.providing_warehouse_id.name
                         )
                     )
                     rec.need_revision = True
             
-            # Check approval rules or warehouse fallback
+            # Check approval rules
             rules = self.env['stock.transport.approval.rule'].search(
                 [('active', '=', True)], order='sequence asc'
             )
             matched_rule = None
             for rule in rules:
-                if rule.matches(rec.providing_warehouse_id.id, rec.total_qty, rec.company_id.id):
+                if rule.matches(rec.providing_warehouse_id.id, request_lines, rec.company_id.id):
                     matched_rule = rule
                     break
             
-            # If no rule matched, check warehouse fallback valid_request_qty
+            # If no rule matched and there are product-specific limit violations
             if not matched_rule:
-                warehouse_limit = rec.providing_warehouse_id.valid_request_qty or 0.0
-                if warehouse_limit > 0.0 and rec.total_qty > warehouse_limit:
-                    messages.append(
-                        _("Total quantity %.2f exceeds warehouse limit %.2f for %s") % (
-                            rec.total_qty, warehouse_limit, rec.providing_warehouse_id.name
-                        )
-                    )
-                    rec.need_revision = True
+                # Check if any rule has product limits that were exceeded
+                warehouse_rules = rules.filtered(lambda r: r.providing_warehouse_id.id == rec.providing_warehouse_id.id)
+                for rule in warehouse_rules:
+                    if rule.rule_line_ids:
+                        for req_line in request_lines:
+                            rule_line = rule.rule_line_ids.filtered(lambda l: l.product_id.id == req_line['product_id'])
+                            if rule_line and rule_line.valid_request_qty > 0.0:
+                                if req_line['qty'] > rule_line.valid_request_qty:
+                                    messages.append(
+                                        _("Product %s: requested %.2f exceeds limit %.2f for %s") % (
+                                            req_line['line'].product_id.display_name,
+                                            req_line['qty'],
+                                            rule_line.valid_request_qty,
+                                            rec.providing_warehouse_id.name
+                                        )
+                                    )
+                                    rec.need_revision = True
             
             # Set state to requested
             rec.state = 'requested'
@@ -172,6 +200,20 @@ class StockTransportRequest(models.Model):
             if rec.need_revision:
                 raise UserError(_("Cannot approve a request that needs revision. Please adjust quantities."))
             
+            # Prepare request lines for rule matching
+            request_lines = []
+            for line in rec.line_ids:
+                product_uom = line.product_id.uom_id
+                requested_qty = line.product_uom_qty
+                if line.product_uom_id and product_uom:
+                    requested_qty = line.product_uom_id._compute_quantity(
+                        line.product_uom_qty, product_uom
+                    )
+                request_lines.append({
+                    'product_id': line.product_id.id,
+                    'qty': requested_qty
+                })
+            
             # Check if user has approver rights
             rules = self.env['stock.transport.approval.rule'].search(
                 [('active', '=', True), ('providing_warehouse_id', '=', rec.providing_warehouse_id.id)], 
@@ -179,7 +221,7 @@ class StockTransportRequest(models.Model):
             )
             matched_rule = None
             for rule in rules:
-                if rule.matches(rec.providing_warehouse_id.id, rec.total_qty, rec.company_id.id):
+                if rule.matches(rec.providing_warehouse_id.id, request_lines, rec.company_id.id):
                     matched_rule = rule
                     break
             
