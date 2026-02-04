@@ -35,7 +35,7 @@ class StockTransportApprovalRule(models.Model):
             return False
         if self.providing_warehouse_id.id != providing_warehouse_id:
             return False
-        
+
         # Check product-specific limits if rule lines are defined
         if self.rule_line_ids:
             for req_line in request_lines:
@@ -45,7 +45,7 @@ class StockTransportApprovalRule(models.Model):
                     # Check if requested qty exceeds the limit
                     if rule_line.valid_request_qty > 0.0 and req_line['qty'] > rule_line.valid_request_qty:
                         return False
-        
+
         return True
 
 
