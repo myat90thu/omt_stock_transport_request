@@ -250,7 +250,7 @@ class StockTransportRequest(models.Model):
             for line in rec.line_ids:
                 uom = line.product_uom_id and line.product_uom_id.id or line.product_id.uom_id.id
                 move_vals = {
-                    'name': line.product_id.display_name,
+                    'reference': line.product_id.display_name,
                     'product_id': line.product_id.id,
                     'product_uom_qty': line.product_uom_qty,
                     'product_uom': uom,

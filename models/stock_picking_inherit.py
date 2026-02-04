@@ -8,9 +8,7 @@ class StockPicking(models.Model):
     def write(self, vals):
         """Override write to check and confirm transport requests when pickings are done."""
         result = super(StockPicking, self).write(vals)
-        if 'state' in vals:
+        if self.state == 'done':
             # Check if any transport requests need to be confirmed
-            requests = self.mapped('transport_request_id').filtered(lambda r: r)
-            for request in requests:
-                request._check_and_confirm()
+            self.transport_request_id._check_and_confirm()
         return result

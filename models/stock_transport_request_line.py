@@ -21,7 +21,7 @@ class StockTransportRequestLine(models.Model):
             if rec.product_id and rec.request_id and rec.request_id.providing_warehouse_id:
                 rec.product_free_qty = rec.product_id.with_context(
                     warehouse=rec.request_id.providing_warehouse_id.id
-                ).qty_available
+                ).free_qty
             else:
                 rec.product_free_qty = 0.0
 

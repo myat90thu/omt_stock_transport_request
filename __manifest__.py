@@ -5,7 +5,7 @@
     "category": "Warehouse",
     "author": "Max Thu - Odoo Myanmar Tutorial",
     "license": "LGPL-3",
-    "depends": ["stock", "product"],
+    "depends": ["stock", "product","base","mail"],
     "data": [
         "data/sto_sequence.xml",
         "security/ir.model.access.csv",
@@ -13,7 +13,6 @@
         "views/sto_approval_rule_views.xml",
         "views/stock_warehouse_views.xml"
     ],
-    "post_init_hook": "post_init_hook",
     "installable": True,
     "application": False
 }
